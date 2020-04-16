@@ -28,13 +28,18 @@
     <chart :selected="selected" :lineData="lineData"></chart>
     </div>
     <div v-if="showTable" class="col-md-12">
-     
+     <button class="btn btn-default" @click="prevPage">prev</button>
+     <button class="btn btn-default" @click="nextPage">next</button>
+     <p>
+        <span>Page: </span>{{currentPage}}  <span>Total pages: </span>{{tableData.last_page}}  
+        <span>Sort: </span>{{currentSort}}|{{currentSortDir}}
+     </p>
       <table class="rwd-table">
         <tr>
-          <th>Client</th>
-          <th>Product</th>
-          <th>Total</th>
-          <th>Date</th>
+          <th @click="sort('client')">Client</th>
+          <th @click="sort('product')">Product</th>
+          <th @click="sort('total')">Total</th>
+          <th @click="sort('date')">Date</th>
           <th>Actions</th>
         </tr>
         <tr v-for="prod in tableData.data" :key="prod.id">
@@ -43,24 +48,29 @@
           <td data-th="Total">{{prod.total}}</td>
           <td data-th="Date">{{prod.date}}</td>
           <td data-th="Actions">
-            <button class="btn btn-success">Edit</button>
-            <button class="btn btn-danger">Delete</button>
+            <button class="btn btn-success" @click="showModalUpdate(prod.id)">Edit</button>
+            <button class="btn btn-danger" @click="deleteHandler(prod.id)">Delete</button>
           </td>
         </tr>
       </table>
     </div>
   </div>
+  <modal :show="showModal" :objdata="editObject" @close="showModal = false" @savePost="updObject">
+    
+  </modal>
 </div>
 
 </template>
 <script>
 import Chart from './Chart'
+import modal from './NewModal'
 import _ from 'lodash'
 
 export default {
   name: 'AppComponent',
   components: {
-    'chart': Chart
+    'chart': Chart,
+    modal
   },
   data: ()=>({
     selected: [{
@@ -80,9 +90,13 @@ export default {
     showTable: false,
     query:'',
     keyword: 'all',
-    
-    currentSort:'product',
-    currentSortDir:'asc' 
+    showModal: false,
+    currentPage:1,
+    currentSort:'client',
+    currentSortDir:'asc',
+    editObject:null,
+    editId:null
+     
 
   }),
   watch: {
@@ -116,64 +130,105 @@ export default {
 
   },
   methods: {
-    submitHandler() {
-      this.showTable = false;
-       axios.post('/test-data',{
-         query: this.query,
-         keyword: this.keyword
+    showModalUpdate(id){
+      const prod = this.tableData.data.filter(el => el.id === id)[0];
+      this.editId = id;
+      this.editObject = {
+        title: prod.product,
+        total: prod.total,
+        date: prod.date
+
+      };
+      this.showModal = true;
+    },
+    updObject:function(obj){
+        // console.log(obj);
+        obj = obj || {};
+        axios.post('/updproduct',{
+         _method: 'put',
+        data: {
+           id:this.editId,
+           product: obj.title,
+           total: obj.total,
+           date: obj.date
+         }
        }).then( res => {
-        console.log(res.data);
+          this.submitHandler();
+       }).catch(err => {console.log(err) });
+    },
+    submitHandler() {
+      
+      this.showTable = false;
+       axios.post('/chart-data',{
+         query: this.query,
+         keyword: this.keyword,
+         sort: this.currentSort,
+         sortdir: this.currentSortDir,
+         page: this.currentPage
+       }).then( res => {
+        if(res.data) {
+          let lineData = res.data.chartData;
+          lineData.datasets.forEach(dataset => {
+            dataset.data = Object.keys(dataset.data).map(function(key) {
+                    return dataset.data[key];
+            })
+          });
+          this.lineData = lineData;
+          this.labels = lineData.labels;
+          this.prevData = _.cloneDeep(lineData);
+          this.tableData = res.data.tableData;
+          if(Object.keys(this.tableData).length !== 0) this.showTable = true;
+        }
+       }).catch(err => {console.log(err) });
+       
+    },
+    deleteHandler(id) {
+     
+      axios.post('/delproduct/'+id,{_method: 'delete'}).then( res => {
+          this.submitHandler();
+      });
+
+    },
+    
+    sort:function(s) {
+    //if s == current sort, reverse
+    if(s === this.currentSort) {
+      this.currentSortDir = this.currentSortDir==='asc'?'desc':'asc';
+      
+    }
+    this.currentSort = s;
+    this.currentPage = 1;
+    this.submitHandler();
+    },
+    nextPage:function() {
+        if(this.currentPage < this.tableData.last_page) this.currentPage++;
+        this.submitHandler();
+    },
+    prevPage:function() {
+        if(this.currentPage > 1) this.currentPage--;
+        this.submitHandler();
+    }
+  },
+  mounted() {
+    axios.get('/test-data').then(res => {
+      if(res.data) {
         let lineData = res.data.chartData;
         lineData.datasets.forEach(dataset => {
           dataset.data = Object.keys(dataset.data).map(function(key) {
                   return dataset.data[key];
           })
         });
+        
+        this.lineData = {...lineData};
+        this.prevData = _.cloneDeep(lineData);
         this.labels = lineData.labels;
-        this.prevData = lineData;
-        this.lineData = lineData;
         this.tableData = res.data.tableData;
         if(Object.keys(this.tableData).length !== 0) this.showTable = true;
-       });
-       
-    },
-    submitHandler2() {
-      this.showTable = false;
-       axios.post('/chart-data',{
-         query: this.query,
-         keyword: this.keyword
-       }).then( res => {
-        console.log(res.data);
-        let lineData = res.data;
-        lineData.datasets.forEach(dataset => {
-          dataset.data = Object.keys(dataset.data).map(function(key) {
-                  return dataset.data[key];
-          })
-        });
-        this.lineData = lineData;
-        this.showTable = true;
-       });
-       
-    }
-  },
-  mounted() {
-    axios.get('/test-data?page=4').then(res => {
-      let lineData = res.data.chartData;
-      lineData.datasets.forEach(dataset => {
-        dataset.data = Object.keys(dataset.data).map(function(key) {
-                return dataset.data[key];
-        })
-      });
-      this.lineData = {...lineData};
-      this.prevData = _.cloneDeep(lineData);
-      this.labels = lineData.labels;
-      this.tableData = res.data.tableData;
-      console.log(this.lineData);
-      console.log(this.tableData);
-      if(Object.keys(this.tableData).length !== 0) this.showTable = true;
-      })
+      }
+      }).catch(err => {console.log(err) });
     
-  }
+  },
+  
 }
 </script>
 <style>

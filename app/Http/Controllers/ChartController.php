@@ -19,6 +19,35 @@ class ChartController extends Controller
         return response()->json($data);
     }
 
+    public function updateProduct(Request $request) {
+        $data = $request->data;
+        $data['date'] = !empty($data['date']) ? date('Y-m-d',strtotime($data['date'])) : date('Y-m-d');
+        $id = intval($data['id']);
+        
+        try 
+        {
+            $affectedRows = Product::where('id', $id)->update($data);
+            return response()->json('product updated' . $affectedRows);
+        }
+    
+        catch (Exception $e) {
+            return response()->json($e->getMessage(), 500);
+        }
+    }
+    public function deleteProduct(Request $request) {
+       
+        $id = intval($request->id);
+        try 
+        {
+            Product::where('id', $id)->delete(); 
+            return response()->json('product deleted');
+        }
+    
+        catch (Exception $e) {
+            return response()->json($e->getMessage(), 500);
+        }
+    }
+
     public function search(Request $request) {
 
         $criteria = $request->all();
@@ -36,14 +65,14 @@ class ChartController extends Controller
         $data = [];
         $keywords = ['client','product','date','total'];
         $keyword = !empty($criteria['keyword']) ? $criteria['keyword'] : null;
+        $sort = !empty($criteria['sort']) ? $criteria['sort'] : 'client';
+        $sortdir = !empty($criteria['sortdir']) ? $criteria['sortdir'] : 'asc';
         $query = !empty($criteria['query']) ? $criteria['query'] : null;
         if($keyword !== 'all' && !in_array($keyword,$keywords)) $keyword = null;
-      
+        
         
         $query = !empty($criteria['query']) ? $criteria['query'] : null;
         unset($keywords['client']);$keywords[]='client_id';
-        
-        if(!in_array($keyword,$keywords)) $keyword = null;
         
         $label = Product::select('date')->groupBy('date')->orderBy('date')->get()->pluck('date')->toArray();
         
@@ -51,10 +80,11 @@ class ChartController extends Controller
         ->join('clients as c','p.client_id','=','c.id')
         ->selectRaw('p.*,c.client');
         
-        if($query && $keyword) {
+        if($query ) {
+         
             switch($keyword) {
                 case 'client':
-                    $dbData->where('p.client_id','like','%' .$query . '%');    
+                    $dbData->where('c.client','like','%' .$query . '%');    
                 break;
                 case 'date':
                     $date = date('Y-m-d',strtotime($query));
@@ -68,12 +98,16 @@ class ChartController extends Controller
                     });   
                 break;
                 default:
-                    $dbData->where('p.'.$keyword,$query);   
+                    $dbData->where('p.'.$keyword,'like','%'.$query.'%');   
             }
         }
+        if($sort == 'client') $sort = "c.client $sortdir, p.date ASC"; 
+        elseif($sort == 'date') $sort = "p.date $sortdir";
+        else $sort = "$sort $sortdir, p.date ASC";
         
-        $dbData = $dbData->orderByRaw('c.client ASC, p.date ASC')->paginate(10);
-
+        // DB::enableQueryLog();
+        $dbData = $dbData->orderByRaw($sort)->paginate(10);
+        // dd( DB::getQueryLog());
         $data['labels'] = $label;
         $data['datasets'] = [];
         $grouped = $dbData->groupBy('client');
@@ -116,6 +150,7 @@ class ChartController extends Controller
 
 
     }
+
     protected function getChartData($criteria = []) {
         $colors = [
             '#466FFF',

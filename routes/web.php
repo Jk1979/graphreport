@@ -18,4 +18,5 @@ Route::get('/', function () {
 });
 
 Route::get('/chart-data', 'ChartController@chartData');
+Route::get('/test-data', 'ChartController@testData');
 Route::post('/chart-data', 'ChartController@search');

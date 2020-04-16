@@ -10,6 +10,10 @@ use Illuminate\Support\Facades\DB;
 class ChartController extends Controller
 {
    
+    public function testData() {
+        $data =  $this->getData();
+        return response()->json($data);
+    }
     public function chartData() {
         $data =  $this->getChartData();
         return response()->json($data);
@@ -18,11 +22,100 @@ class ChartController extends Controller
     public function search(Request $request) {
 
         $criteria = $request->all();
-        $data =  $this->getChartData($criteria);
+        $data =  $this->getData($criteria);
         return response()->json($data);
 
     }
 
+    protected function getData($criteria = []) {
+        $colors = [
+            'acme'=>'#466FFF',
+            'microsoft'=>'#FF4286',
+            'apple'=>'#31DDA9'
+        ];
+        $data = [];
+        $keywords = ['client','product','date','total'];
+        $keyword = !empty($criteria['keyword']) ? $criteria['keyword'] : null;
+        $query = !empty($criteria['query']) ? $criteria['query'] : null;
+        if($keyword !== 'all' && !in_array($keyword,$keywords)) $keyword = null;
+      
+        
+        $query = !empty($criteria['query']) ? $criteria['query'] : null;
+        unset($keywords['client']);$keywords[]='client_id';
+        
+        if(!in_array($keyword,$keywords)) $keyword = null;
+        
+        $label = Product::select('date')->groupBy('date')->orderBy('date')->get()->pluck('date')->toArray();
+        
+        $dbData = DB::table('products as p')
+        ->join('clients as c','p.client_id','=','c.id')
+        ->selectRaw('p.*,c.client');
+        
+        if($query && $keyword) {
+            switch($keyword) {
+                case 'client':
+                    $dbData->where('p.client_id','like','%' .$query . '%');    
+                break;
+                case 'date':
+                    $date = date('Y-m-d',strtotime($query));
+                    $dbData->where('p.'.$keyword,$date);
+                break;
+                case 'all':
+                    $dbData->where(function ($q) use($query,$keywords) {
+                        foreach($keywords as $kword) {
+                            $q->orWhere($kword,'like','%'.$query.'%');
+                        }
+                    });   
+                break;
+                default:
+                    $dbData->where('p.'.$keyword,$query);   
+            }
+        }
+        
+        $dbData = $dbData->orderByRaw('c.client ASC, p.date ASC')->paginate(10);
+
+        $data['labels'] = $label;
+        $data['datasets'] = [];
+        $grouped = $dbData->groupBy('client');
+        
+        foreach($grouped as $client => $row) {
+            $newlabels = [];
+            $dt = array_fill(0, count($label), 0);
+            // $dt=[];
+            
+            
+            $prodSet = [
+                'label'=> $client,
+                'lineTension'=> 0,
+                'fill'=> false,
+                'borderColor'=> !empty($colors[mb_strtolower($client)]) ? $colors[mb_strtolower($client)] : '#466FFF',
+                'backgroundColor'=> "#ffffff00",
+            ];
+            
+            if($row->count()) {
+                foreach($row as $prod) {
+                   
+                    $key = array_search($prod->date, $label);
+                    $dt[$key] = $prod->total;
+                    $newlabels[] = $prod->date;
+                }
+            }
+            else $dt = [];
+            $prodSet['data'] = $dt;
+            $prodSet['lbs'] = $newlabels;
+
+            $data['datasets'][] = $prodSet;
+        }
+        // sort($newlabels);
+        // $data['labels'] = $newlabels;
+
+        return [
+            'tableData' => $dbData->toArray(),
+            'chartData' => $data
+        ];
+
+
+    }
     protected function getChartData($criteria = []) {
         $colors = [
             '#466FFF',
@@ -34,14 +127,16 @@ class ChartController extends Controller
         $keyword = !empty($criteria['keyword']) ? $criteria['keyword'] : null;
         $query = !empty($criteria['query']) ? $criteria['query'] : null;
        
-        if(!in_array($keyword,$keywords)) $keyword = null;
-
-        
+        if($keyword !== 'all' && !in_array($keyword,$keywords)) $keyword = null;
+       
+        //  DB::enableQueryLog();
         $label = Product::select('date')->groupBy('date')->orderBy('date')->get()->pluck('date')->toArray();
         $clients = Client::with(array(
-            'products' => function ($q) use($query,$keyword){
+            'products' => function ($q) use($query,$keyword, $keywords){
                 if($query) {
+                    
                     if($keyword && $keyword != 'client') {
+                        
                         switch($keyword) {
                             case 'date':
                                 $date = date('Y-m-d',strtotime($query));
@@ -52,16 +147,25 @@ class ChartController extends Controller
                         }
                         
                     }
+                    else{
+                        $q->where(function ($qor) use($query,$keywords) {
+                            foreach($keywords as $kword) {
+                                if($kword == 'client') continue;
+                                $qor->orWhere($kword,'like','%'.$query.'%');
+                            }
+                        });
+                    }
                 }
                 $q->orderBy('date', 'asc');
         }));
         if($query && $keyword == 'client') $clients->where($keyword,$query);
         $clients = $clients->get();
-
+        //  dd( DB::getQueryLog());
+       
         $data['labels'] = $label;
         $data['datasets'] = [];
         $clients->each(function($client,$key) use(&$data,$colors,$label) {
-            $dt = array_fill(5, count($label), 0);
+            $dt = array_fill(0, count($label), 0);
             $products = $client->products;
             
             $prodSet = [

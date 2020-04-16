@@ -10960,6 +10960,7 @@ h1 {
 }
 
 .rwd-table {
+  width: 100%;
   background: #34495E;
   color: #fff;
   border-radius: 0.4em;

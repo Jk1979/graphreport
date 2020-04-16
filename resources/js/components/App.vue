@@ -10,8 +10,9 @@
         <input class="form-control" v-model="query"  type="text" placeholder="Search" aria-label="Search">
       </div>
       <div class="form-group mx-sm-3 mb-2">
+        
         <select class="form-control"  v-model="keyword">
-          <option selected>All</option>
+          <option value="all" selected="selected">All</option>
           <option value="client">Client</option>
           <option value="product">Product</option>
           <option value="total">Total </option>
@@ -30,28 +31,21 @@
      
       <table class="rwd-table">
         <tr>
-          <th>Movie Title</th>
-          <th>Genre</th>
-          <th>Year</th>
-          <th>Gross</th>
+          <th>Client</th>
+          <th>Product</th>
+          <th>Total</th>
+          <th>Date</th>
+          <th>Actions</th>
         </tr>
-        <tr>
-          <td data-th="Movie Title">Star Wars</td>
-          <td data-th="Genre">Adventure, Sci-fi</td>
-          <td data-th="Year">1977</td>
-          <td data-th="Gross">$460,935,665</td>
-        </tr>
-        <tr>
-          <td data-th="Movie Title">Howard The Duck</td>
-          <td data-th="Genre">"Comedy"</td>
-          <td data-th="Year">1986</td>
-          <td data-th="Gross">$16,295,774</td>
-        </tr>
-        <tr>
-          <td data-th="Movie Title">American Graffiti</td>
-          <td data-th="Genre">Comedy, Drama</td>
-          <td data-th="Year">1973</td>
-          <td data-th="Gross">$115,000,000</td>
+        <tr v-for="prod in tableData.data" :key="prod.id">
+          <td data-th="Client">{{prod.client}}</td>
+          <td data-th="Product">{{prod.product}}</td>
+          <td data-th="Total">{{prod.total}}</td>
+          <td data-th="Date">{{prod.date}}</td>
+          <td data-th="Actions">
+            <button class="btn btn-success">Edit</button>
+            <button class="btn btn-danger">Delete</button>
+          </td>
         </tr>
       </table>
     </div>
@@ -61,6 +55,8 @@
 </template>
 <script>
 import Chart from './Chart'
+import _ from 'lodash'
+
 export default {
   name: 'AppComponent',
   components: {
@@ -77,14 +73,71 @@ export default {
       "name": "Apple",
       "checked": true
     }],
+    labels: [],
+    prevData: {},
     lineData: {},
+    tableData: [],
     showTable: false,
     query:'',
-    keyword:'' 
+    keyword: 'all',
+    
+    currentSort:'product',
+    currentSortDir:'asc' 
 
   }),
+  watch: {
+    unSelected: function() {
+        if(Object.keys(this.lineData).length !== 0 && this.unSelected.length === 1 && this.labels.length) {
+          
+          let newlabels = [];
+          this.lineData.datasets.map(it => {
+            if(it.label === this.unSelected[0].name) {
+              newlabels = [...newlabels,...it.lbs];
+              it.data = it.data.filter( dt => dt !== 0);
+            }
+          });
+          this.lineData.labels = newlabels;
+        } else {
+          this.lineData.labels = this.labels;
+          this.lineData = _.cloneDeep(this.prevData);
+        }
+    }
+  },
+  computed: {
+    selChanged: function() {
+      return  !this.selected.every(it => it.checked === true);
+    },
+    unSelected: function() {
+      if(this.selChanged) {
+        return  this.selected.filter(it => it.checked === true);
+      }
+      else return false;
+    },
+
+  },
   methods: {
     submitHandler() {
+      this.showTable = false;
+       axios.post('/test-data',{
+         query: this.query,
+         keyword: this.keyword
+       }).then( res => {
+        console.log(res.data);
+        let lineData = res.data.chartData;
+        lineData.datasets.forEach(dataset => {
+          dataset.data = Object.keys(dataset.data).map(function(key) {
+                  return dataset.data[key];
+          })
+        });
+        this.labels = lineData.labels;
+        this.prevData = lineData;
+        this.lineData = lineData;
+        this.tableData = res.data.tableData;
+        if(Object.keys(this.tableData).length !== 0) this.showTable = true;
+       });
+       
+    },
+    submitHandler2() {
       this.showTable = false;
        axios.post('/chart-data',{
          query: this.query,
@@ -104,16 +157,20 @@ export default {
     }
   },
   mounted() {
-    axios.get('/chart-data').then(res => {
-      let lineData = res.data;
+    axios.get('/test-data?page=4').then(res => {
+      let lineData = res.data.chartData;
       lineData.datasets.forEach(dataset => {
         dataset.data = Object.keys(dataset.data).map(function(key) {
                 return dataset.data[key];
         })
       });
-      this.lineData = lineData;
+      this.lineData = {...lineData};
+      this.prevData = _.cloneDeep(lineData);
+      this.labels = lineData.labels;
+      this.tableData = res.data.tableData;
       console.log(this.lineData);
-      this.showTable = true;
+      console.log(this.tableData);
+      if(Object.keys(this.tableData).length !== 0) this.showTable = true;
       })
     
   }

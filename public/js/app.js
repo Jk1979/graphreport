@@ -1909,6 +1909,26 @@ module.exports = {
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _Chart__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./Chart */ "./resources/js/components/Chart.vue");
+/* harmony import */ var lodash__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! lodash */ "./node_modules/lodash/lodash.js");
+/* harmony import */ var lodash__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(lodash__WEBPACK_IMPORTED_MODULE_1__);
+function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) { var symbols = Object.getOwnPropertySymbols(object); if (enumerableOnly) symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; }); keys.push.apply(keys, symbols); } return keys; }
+
+function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i] != null ? arguments[i] : {}; if (i % 2) { ownKeys(Object(source), true).forEach(function (key) { _defineProperty(target, key, source[key]); }); } else if (Object.getOwnPropertyDescriptors) { Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)); } else { ownKeys(Object(source)).forEach(function (key) { Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key)); }); } } return target; }
+
+function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
+
+function _toConsumableArray(arr) { return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _unsupportedIterableToArray(arr) || _nonIterableSpread(); }
+
+function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+
+function _unsupportedIterableToArray(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(n); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen); }
+
+function _iterableToArray(iter) { if (typeof Symbol !== "undefined" && Symbol.iterator in Object(iter)) return Array.from(iter); }
+
+function _arrayWithoutHoles(arr) { if (Array.isArray(arr)) return _arrayLikeToArray(arr); }
+
+function _arrayLikeToArray(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
+
 //
 //
 //
@@ -1964,12 +1984,7 @@ __webpack_require__.r(__webpack_exports__);
 //
 //
 //
-//
-//
-//
-//
-//
-//
+
 
 /* harmony default export */ __webpack_exports__["default"] = ({
   name: 'AppComponent',
@@ -1988,15 +2003,77 @@ __webpack_require__.r(__webpack_exports__);
         "name": "Apple",
         "checked": true
       }],
+      labels: [],
+      prevData: {},
       lineData: {},
+      tableData: [],
       showTable: false,
       query: '',
-      keyword: ''
+      keyword: 'all',
+      currentSort: 'product',
+      currentSortDir: 'asc'
     };
+  },
+  watch: {
+    unSelected: function unSelected() {
+      var _this = this;
+
+      if (Object.keys(this.lineData).length !== 0 && this.unSelected.length === 1 && this.labels.length) {
+        var newlabels = [];
+        this.lineData.datasets.map(function (it) {
+          if (it.label === _this.unSelected[0].name) {
+            newlabels = [].concat(_toConsumableArray(newlabels), _toConsumableArray(it.lbs));
+            it.data = it.data.filter(function (dt) {
+              return dt !== 0;
+            });
+          }
+        });
+        this.lineData.labels = newlabels;
+      } else {
+        this.lineData.labels = this.labels;
+        this.lineData = lodash__WEBPACK_IMPORTED_MODULE_1___default.a.cloneDeep(this.prevData);
+      }
+    }
+  },
+  computed: {
+    selChanged: function selChanged() {
+      return !this.selected.every(function (it) {
+        return it.checked === true;
+      });
+    },
+    unSelected: function unSelected() {
+      if (this.selChanged) {
+        return this.selected.filter(function (it) {
+          return it.checked === true;
+        });
+      } else return false;
+    }
   },
   methods: {
     submitHandler: function submitHandler() {
-      var _this = this;
+      var _this2 = this;
+
+      this.showTable = false;
+      axios.post('/test-data', {
+        query: this.query,
+        keyword: this.keyword
+      }).then(function (res) {
+        console.log(res.data);
+        var lineData = res.data.chartData;
+        lineData.datasets.forEach(function (dataset) {
+          dataset.data = Object.keys(dataset.data).map(function (key) {
+            return dataset.data[key];
+          });
+        });
+        _this2.labels = lineData.labels;
+        _this2.prevData = lineData;
+        _this2.lineData = lineData;
+        _this2.tableData = res.data.tableData;
+        if (Object.keys(_this2.tableData).length !== 0) _this2.showTable = true;
+      });
+    },
+    submitHandler2: function submitHandler2() {
+      var _this3 = this;
 
       this.showTable = false;
       axios.post('/chart-data', {
@@ -2010,24 +2087,28 @@ __webpack_require__.r(__webpack_exports__);
             return dataset.data[key];
           });
         });
-        _this.lineData = lineData;
-        _this.showTable = true;
+        _this3.lineData = lineData;
+        _this3.showTable = true;
       });
     }
   },
   mounted: function mounted() {
-    var _this2 = this;
+    var _this4 = this;
 
-    axios.get('/chart-data').then(function (res) {
-      var lineData = res.data;
+    axios.get('/test-data?page=4').then(function (res) {
+      var lineData = res.data.chartData;
       lineData.datasets.forEach(function (dataset) {
         dataset.data = Object.keys(dataset.data).map(function (key) {
           return dataset.data[key];
         });
       });
-      _this2.lineData = lineData;
-      console.log(_this2.lineData);
-      _this2.showTable = true;
+      _this4.lineData = _objectSpread({}, lineData);
+      _this4.prevData = lodash__WEBPACK_IMPORTED_MODULE_1___default.a.cloneDeep(lineData);
+      _this4.labels = lineData.labels;
+      _this4.tableData = res.data.tableData;
+      console.log(_this4.lineData);
+      console.log(_this4.tableData);
+      if (Object.keys(_this4.tableData).length !== 0) _this4.showTable = true;
     });
   }
 });
@@ -2098,39 +2179,7 @@ __webpack_require__.r(__webpack_exports__);
             }
           }]
         }
-      } // lineData: {
-      //   labels: [
-      //     "01.02.2015", "02.02.2015", "04.02.2015", "06.02.2015", "07.02.2015", "07.02.2015",
-      //     "08.02.2015", "09.02.2015", "19.02.2015", "21.02.2015", "22.02.2015", "10.02.2015",
-      //     "28.02.2015","09.03.2015"
-      //   ],
-      //   datasets: [{
-      //     hidden: false,
-      //     label: "Acme",
-      //     lineTension: 0,
-      //     fill: false,
-      //     borderColor: "#466FFF",
-      //     backgroundColor: "#ffffff00",
-      //     data: [30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41]
-      //   }, {
-      //     hidden: false,
-      //     label: "Microsoft",
-      //     lineTension: 0,
-      //     fill: false,
-      //     borderColor: "#FF4286",
-      //     backgroundColor: "#ffffff00",
-      //     data: [1200, 1201, 1202, 1203, 1204, 1205, 1206, 1207]
-      //   }, {
-      //     hidden: false,
-      //     label: "Apple",
-      //     lineTension: 0,
-      //     fill: false,
-      //     borderColor: "#31DDA9",
-      //     backgroundColor: "#ffffff00",
-      //     data: [0,0,0,0,0,0,0,0,0,10000, 100000, 399]
-      //   }]
-      // }
-
+      }
     };
   },
   computed: {
@@ -72021,7 +72070,11 @@ var render = function() {
                     }
                   },
                   [
-                    _c("option", { attrs: { selected: "" } }, [_vm._v("All")]),
+                    _c(
+                      "option",
+                      { attrs: { value: "all", selected: "selected" } },
+                      [_vm._v("All")]
+                    ),
                     _vm._v(" "),
                     _c("option", { attrs: { value: "client" } }, [
                       _vm._v("Client")
@@ -72107,7 +72160,38 @@ var render = function() {
       ),
       _vm._v(" "),
       _vm.showTable
-        ? _c("div", { staticClass: "col-md-12" }, [_vm._m(0)])
+        ? _c("div", { staticClass: "col-md-12" }, [
+            _c(
+              "table",
+              { staticClass: "rwd-table" },
+              [
+                _vm._m(0),
+                _vm._v(" "),
+                _vm._l(_vm.tableData.data, function(prod) {
+                  return _c("tr", { key: prod.id }, [
+                    _c("td", { attrs: { "data-th": "Client" } }, [
+                      _vm._v(_vm._s(prod.client))
+                    ]),
+                    _vm._v(" "),
+                    _c("td", { attrs: { "data-th": "Product" } }, [
+                      _vm._v(_vm._s(prod.product))
+                    ]),
+                    _vm._v(" "),
+                    _c("td", { attrs: { "data-th": "Total" } }, [
+                      _vm._v(_vm._s(prod.total))
+                    ]),
+                    _vm._v(" "),
+                    _c("td", { attrs: { "data-th": "Date" } }, [
+                      _vm._v(_vm._s(prod.date))
+                    ]),
+                    _vm._v(" "),
+                    _vm._m(1, true)
+                  ])
+                })
+              ],
+              2
+            )
+          ])
         : _vm._e()
     ])
   ])
@@ -72117,54 +72201,26 @@ var staticRenderFns = [
     var _vm = this
     var _h = _vm.$createElement
     var _c = _vm._self._c || _h
-    return _c("table", { staticClass: "rwd-table" }, [
-      _c("tr", [
-        _c("th", [_vm._v("Movie Title")]),
-        _vm._v(" "),
-        _c("th", [_vm._v("Genre")]),
-        _vm._v(" "),
-        _c("th", [_vm._v("Year")]),
-        _vm._v(" "),
-        _c("th", [_vm._v("Gross")])
-      ]),
+    return _c("tr", [
+      _c("th", [_vm._v("Client")]),
       _vm._v(" "),
-      _c("tr", [
-        _c("td", { attrs: { "data-th": "Movie Title" } }, [
-          _vm._v("Star Wars")
-        ]),
-        _vm._v(" "),
-        _c("td", { attrs: { "data-th": "Genre" } }, [
-          _vm._v("Adventure, Sci-fi")
-        ]),
-        _vm._v(" "),
-        _c("td", { attrs: { "data-th": "Year" } }, [_vm._v("1977")]),
-        _vm._v(" "),
-        _c("td", { attrs: { "data-th": "Gross" } }, [_vm._v("$460,935,665")])
-      ]),
+      _c("th", [_vm._v("Product")]),
       _vm._v(" "),
-      _c("tr", [
-        _c("td", { attrs: { "data-th": "Movie Title" } }, [
-          _vm._v("Howard The Duck")
-        ]),
-        _vm._v(" "),
-        _c("td", { attrs: { "data-th": "Genre" } }, [_vm._v('"Comedy"')]),
-        _vm._v(" "),
-        _c("td", { attrs: { "data-th": "Year" } }, [_vm._v("1986")]),
-        _vm._v(" "),
-        _c("td", { attrs: { "data-th": "Gross" } }, [_vm._v("$16,295,774")])
-      ]),
+      _c("th", [_vm._v("Total")]),
       _vm._v(" "),
-      _c("tr", [
-        _c("td", { attrs: { "data-th": "Movie Title" } }, [
-          _vm._v("American Graffiti")
-        ]),
-        _vm._v(" "),
-        _c("td", { attrs: { "data-th": "Genre" } }, [_vm._v("Comedy, Drama")]),
-        _vm._v(" "),
-        _c("td", { attrs: { "data-th": "Year" } }, [_vm._v("1973")]),
-        _vm._v(" "),
-        _c("td", { attrs: { "data-th": "Gross" } }, [_vm._v("$115,000,000")])
-      ])
+      _c("th", [_vm._v("Date")]),
+      _vm._v(" "),
+      _c("th", [_vm._v("Actions")])
+    ])
+  },
+  function() {
+    var _vm = this
+    var _h = _vm.$createElement
+    var _c = _vm._self._c || _h
+    return _c("td", { attrs: { "data-th": "Actions" } }, [
+      _c("button", { staticClass: "btn btn-success" }, [_vm._v("Edit")]),
+      _vm._v(" "),
+      _c("button", { staticClass: "btn btn-danger" }, [_vm._v("Delete")])
     ])
   }
 ]

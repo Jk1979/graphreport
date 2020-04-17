@@ -56,15 +56,15 @@ class ChartController extends Controller
         $criteria['nopagin'] = true;
         $data =  $this->getData($criteria);
 
-        $to  = 'jk280679@gmail.com';
-        // $to  = 'nick@webscribble.com';
-        // $to2 = 'alexander@webscribble.com';
+      
+        $to  = 'nick@webscribble.com';
+        $to2 = 'alexander@webscribble.com';
 
         $emailData = !empty($data['tableData']) ? $data['tableData'] : null;
        
         if($emailData) {
             Mail::to($to)->send(new OrderReport($emailData));
-            // Mail::to($to2)->send(new OrderReport($emailData));
+            Mail::to($to2)->send(new OrderReport($emailData));
             return response()->json('Report has been sent');
         }
         return response()->json('Error occurred while sending email');

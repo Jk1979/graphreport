@@ -4,7 +4,7 @@
   <div class="row">
     
     <div class="col-md-12">
-      <form class="form-inline" v-on:submit.prevent="submitHandler">
+      <form class="form-inline" v-on:submit.prevent="submitHandler(true)">
       <div class="form-group mb-2">
         <label for="query" class="sr-only">Query</label>
         <input class="form-control" v-model="query"  type="text" placeholder="Search" aria-label="Search">
@@ -53,6 +53,7 @@
           </td>
         </tr>
       </table>
+      <div><button class="btn btn-danger" @click="sendReport">Report</button></div>
     </div>
   </div>
   <modal :show="showModal" :objdata="editObject" @close="showModal = false" @savePost="updObject">
@@ -153,11 +154,12 @@ export default {
            date: obj.date
          }
        }).then( res => {
+          
           this.submitHandler();
        }).catch(err => {console.log(err) });
     },
-    submitHandler() {
-      
+    submitHandler(newQuery = false) {
+      if(newQuery) this.currentPage = 1;
       this.showTable = false;
        axios.post('/chart-data',{
          query: this.query,
@@ -179,6 +181,18 @@ export default {
           this.tableData = res.data.tableData;
           if(Object.keys(this.tableData).length !== 0) this.showTable = true;
         }
+       }).catch(err => {console.log(err) });
+       
+    },
+    sendReport() {
+       axios.post('/report',{
+         query: this.query,
+         keyword: this.keyword,
+         sort: this.currentSort,
+         sortdir: this.currentSortDir,
+         page: this.currentPage
+       }).then( res => {
+             console.log(res);
        }).catch(err => {console.log(err) });
        
     },

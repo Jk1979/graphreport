@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use App\Product;
 use App\Client;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\OrderReport;
 
 class ChartController extends Controller
 {
@@ -47,6 +49,26 @@ class ChartController extends Controller
             return response()->json($e->getMessage(), 500);
         }
     }
+    public function sendReport(Request $request)
+    {
+        
+        $criteria = $request->all();
+        $criteria['nopagin'] = true;
+        $data =  $this->getData($criteria);
+
+        $to  = 'jk280679@gmail.com';
+        // $to  = 'nick@webscribble.com';
+        // $to2 = 'alexander@webscribble.com';
+
+        $emailData = !empty($data['tableData']) ? $data['tableData'] : null;
+       
+        if($emailData) {
+            Mail::to($to)->send(new OrderReport($emailData));
+            // Mail::to($to2)->send(new OrderReport($emailData));
+            return response()->json('Report has been sent');
+        }
+        return response()->json('Error occurred while sending email');
+    }
 
     public function search(Request $request) {
 
@@ -68,6 +90,7 @@ class ChartController extends Controller
         $sort = !empty($criteria['sort']) ? $criteria['sort'] : 'client';
         $sortdir = !empty($criteria['sortdir']) ? $criteria['sortdir'] : 'asc';
         $query = !empty($criteria['query']) ? $criteria['query'] : null;
+        $nopagin = !empty($criteria['nopagin']) ? $criteria['nopagin'] : false;
         if($keyword !== 'all' && !in_array($keyword,$keywords)) $keyword = null;
         
         
@@ -106,7 +129,8 @@ class ChartController extends Controller
         else $sort = "$sort $sortdir, p.date ASC";
         
         // DB::enableQueryLog();
-        $dbData = $dbData->orderByRaw($sort)->paginate(10);
+        if($nopagin) $dbData = $dbData->orderByRaw($sort)->get();
+        else $dbData = $dbData->orderByRaw($sort)->paginate(10);
         // dd( DB::getQueryLog());
         $data['labels'] = $label;
         $data['datasets'] = [];

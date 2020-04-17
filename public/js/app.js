@@ -1993,6 +1993,7 @@ function _arrayLikeToArray(arr, len) { if (len == null || len > arr.length) len 
 //
 //
 //
+//
 
 
 
@@ -2099,6 +2100,8 @@ function _arrayLikeToArray(arr, len) { if (len == null || len > arr.length) len 
     submitHandler: function submitHandler() {
       var _this3 = this;
 
+      var newQuery = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : false;
+      if (newQuery) this.currentPage = 1;
       this.showTable = false;
       axios.post('/chart-data', {
         query: this.query,
@@ -2120,6 +2123,19 @@ function _arrayLikeToArray(arr, len) { if (len == null || len > arr.length) len 
           _this3.tableData = res.data.tableData;
           if (Object.keys(_this3.tableData).length !== 0) _this3.showTable = true;
         }
+      })["catch"](function (err) {
+        console.log(err);
+      });
+    },
+    sendReport: function sendReport() {
+      axios.post('/report', {
+        query: this.query,
+        keyword: this.keyword,
+        sort: this.currentSort,
+        sortdir: this.currentSortDir,
+        page: this.currentPage
+      }).then(function (res) {
+        console.log(res);
       })["catch"](function (err) {
         console.log(err);
       });
@@ -72190,7 +72206,7 @@ var render = function() {
                 on: {
                   submit: function($event) {
                     $event.preventDefault()
-                    return _vm.submitHandler($event)
+                    return _vm.submitHandler(true)
                   }
                 }
               },
@@ -72483,7 +72499,18 @@ var render = function() {
                   })
                 ],
                 2
-              )
+              ),
+              _vm._v(" "),
+              _c("div", [
+                _c(
+                  "button",
+                  {
+                    staticClass: "btn btn-danger",
+                    on: { click: _vm.sendReport }
+                  },
+                  [_vm._v("Report")]
+                )
+              ])
             ])
           : _vm._e()
       ]),

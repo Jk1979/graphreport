@@ -22,3 +22,4 @@ Route::get('/test-data', 'ChartController@testData');
 Route::post('/chart-data', 'ChartController@search');
 Route::delete('/delproduct/{id}','ChartController@deleteProduct');
 Route::put('/updproduct','ChartController@updateProduct');
+Route::post('/report','ChartController@sendReport');
